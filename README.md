@@ -146,25 +146,6 @@ brew install python-tk
 - `torch`: Neural network backend
 - `pyannote.audio`: Speaker diarization (optional feature)
 
-## Recent Changes
-
-### Diarization & Audio Processing Fixes (Feb 2026)
-
-**Diarization Fixes:**
-
-- **Fixed timing alignment**: Diarization now runs on the same processed audio as transcription, fixing speaker label misalignment issues
-- **Updated pyannote 3.x API**: Fixed compatibility with pyannote.audio 3.x which changed the output format from `Annotation` to `DiarizeOutput`
-- **Fixed tensor format**: Corrected waveform tensor shape from `(batch, channel, time)` to `(channel, time)` as required by pyannote
-- **Improved error reporting**: Added detailed logging showing detected speaker segments with timestamps, warnings when no segments found, and full tracebacks on errors
-- **Fixed boundary matching**: Speaker segment matching now uses exclusive end bounds to prevent double-matching at segment boundaries
-
-**Audio Processing Improvements:**
-
-- **Lowered high-pass filter**: Changed from 80Hz to 60Hz to preserve male voice fundamentals (85-180Hz range)
-- **Reduced noise gate threshold**: Lowered from 0.01 to 0.005 RMS to avoid cutting quiet speech
-- **Enabled pre-emphasis filter**: Boosts high frequencies/consonants for improved speech recognition accuracy
-- **Improved padding**: Changed from zero-padding to edge-padding for short audio clips to avoid confusing Whisper
-
 ## License
 
 MIT License

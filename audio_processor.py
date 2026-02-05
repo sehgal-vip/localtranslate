@@ -22,29 +22,24 @@ class AudioProcessor:
         audio = self.remove_dc_offset(audio)
 
         # Apply high-pass filter to remove low-frequency noise
-        # Use 60Hz cutoff to preserve male voice fundamentals (85-180Hz)
-        audio = self.high_pass_filter(audio, cutoff=60)
+        audio = self.high_pass_filter(audio, cutoff=80)
 
         # Normalize audio levels
         audio = self.normalize(audio)
 
-        # Apply noise gate with adaptive threshold
-        audio = self.noise_gate(audio, threshold=0.005)
+        # Apply noise gate to reduce background noise
+        audio = self.noise_gate(audio, threshold=0.01)
 
         # Trim silence from start and end
         audio = self.trim_silence(audio)
-
-        # Apply pre-emphasis to boost consonants for better speech recognition
-        audio = self.apply_preemphasis(audio, coef=0.97)
 
         # Final normalization
         audio = self.normalize(audio)
 
         # Pad to minimum length for Whisper (0.5 seconds)
-        # Use edge padding (repeat last sample) instead of zeros to avoid confusing Whisper
         min_samples = int(self.sample_rate * 0.5)
         if len(audio) < min_samples:
-            audio = np.pad(audio, (0, min_samples - len(audio)), mode='edge')
+            audio = np.pad(audio, (0, min_samples - len(audio)))
 
         return audio
 
@@ -99,7 +94,7 @@ class AudioProcessor:
     def trim_silence(
         self,
         audio: np.ndarray,
-        threshold: float = 0.005,
+        threshold: float = 0.01,
         min_silence_duration: float = 0.1
     ) -> np.ndarray:
         """Trim silence from start and end of audio."""

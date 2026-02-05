@@ -181,28 +181,17 @@ class LocalTranslate:
             print(f"  Length: {len(processed_audio) / 16000:.1f}s")
 
             # Try speaker diarization if enabled
-            # IMPORTANT: Run diarization on PROCESSED audio (same as transcription)
-            # to ensure timing alignment between speaker segments and transcribed text
             speaker_segments = []
             if config.enable_diarization:
                 try:
                     if self._init_diarization():
                         print("Running speaker diarization...")
                         speaker_segments = self._speaker_identifier.identify_speakers(
-                            processed_audio, sample_rate=16000
+                            audio, sample_rate=16000
                         )
-                        if speaker_segments:
-                            print(f"  Found {len(speaker_segments)} speaker segments:")
-                            for seg in speaker_segments[:3]:
-                                print(f"    {seg.speaker}: {seg.start_time:.2f}s - {seg.end_time:.2f}s")
-                            if len(speaker_segments) > 3:
-                                print(f"    ... and {len(speaker_segments) - 3} more")
-                        else:
-                            print("  WARNING: No speaker segments detected")
+                        print(f"  Found {len(speaker_segments)} speaker segments")
                 except Exception as e:
                     print(f"  Diarization failed: {e}")
-                    import traceback
-                    traceback.print_exc()
                     speaker_segments = []
 
             # Transcribe
@@ -250,8 +239,7 @@ class LocalTranslate:
             speaker = None
 
             for sp in speaker_segments:
-                # Use exclusive end bound to avoid double-matching at boundaries
-                if sp.start_time <= seg_mid < sp.end_time:
+                if sp.start_time <= seg_mid <= sp.end_time:
                     speaker = sp.speaker
                     break
 

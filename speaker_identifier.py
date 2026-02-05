@@ -111,16 +111,13 @@ class SpeakerIdentifier:
             if audio.dtype != np.float32:
                 audio = audio.astype(np.float32)
 
-            # Create waveform tensor (channel, time) - pyannote expects this format
-            waveform = torch.from_numpy(audio).unsqueeze(0)
+            # Create waveform tensor (batch, channels, samples)
+            waveform = torch.from_numpy(audio).unsqueeze(0).unsqueeze(0)
 
             # Run diarization
-            result = self._pipeline(
+            diarization = self._pipeline(
                 {"waveform": waveform, "sample_rate": sample_rate}
             )
-
-            # pyannote 3.x returns DiarizeOutput, access speaker_diarization annotation
-            diarization = result.speaker_diarization
 
             segments = []
             for turn, _, speaker in diarization.itertracks(yield_label=True):
