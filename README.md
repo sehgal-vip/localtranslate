@@ -1,13 +1,14 @@
 # LocalTranslate
 
-A macOS menu bar application that captures microphone audio and transcribes it in real-time using a local Whisper model, with optional speaker diarization.
+A macOS menu bar application that captures microphone audio and transcribes it locally using OpenAI's Whisper model, with optional speaker diarization.
 
 ## Features
 
-- **Real-time transcription**: Captures audio and transcribes using OpenAI's Whisper model running locally
+- **Local transcription**: Records audio sessions and transcribes them using OpenAI's Whisper model running entirely on-device
 - **Menu bar integration**: Runs as a lightweight macOS menu bar app
 - **Speaker diarization**: Optional feature to identify and label different speakers (requires HuggingFace token)
-- **Timestamped output**: Saves transcriptions with timestamps to Markdown or plain text files
+- **Flexible output**: Saves transcriptions to Markdown or plain text files with session date and duration
+- **System audio capture**: Record and transcribe system audio (video calls, podcasts, YouTube) alongside your microphone using BlackHole
 - **Configurable settings**: Choose Whisper model size, output format, microphone, and more
 
 ## Requirements
@@ -65,7 +66,7 @@ Access settings through the menu bar to configure:
 | Include System Audio | Capture system audio (requires BlackHole) | Disabled |
 | System Audio Device | Device for system audio capture | (empty) |
 | File Format | Output format (.md or .txt) | Markdown |
-| Include Timestamps | Add timestamps to transcription lines | Enabled |
+| Include Timestamps | Add timestamps to transcription lines (planned) | Enabled |
 | Enable Diarization | Identify different speakers | Disabled |
 | HuggingFace Token | Required for speaker diarization | (empty) |
 
@@ -122,7 +123,7 @@ Now when you record, both your microphone input and system audio will be capture
 
 ## Output Format
 
-Transcriptions are saved with timestamps:
+Transcriptions are saved with a header containing the date and session duration:
 
 **Markdown (.md)**:
 ```markdown
@@ -130,16 +131,16 @@ Transcriptions are saved with timestamps:
 
 **Date:** 2024-01-15 14:30:00
 
+**Duration:** 00:00:15
+
 ---
 
-[00:00:03] Hello, this is a test recording.
-[00:00:08] The transcription appears in real-time.
+Hello, this is a test recording. The transcription appears after recording stops.
 ```
 
 **With speaker diarization**:
 ```markdown
-[00:00:03] Speaker 1: Hello, this is a test recording.
-[00:00:08] Speaker 2: Yes, I can see the transcription working.
+**Speaker 1:** Hello, this is a test recording. **Speaker 2:** Yes, I can see the transcription working.
 ```
 
 ## Configuration File
@@ -177,6 +178,13 @@ brew install python-tk
 - `pyannote.audio`: Speaker diarization (optional feature)
 
 ## Recent Changes
+
+### System Audio Capture (Feb 2026)
+
+- **BlackHole integration**: Capture system audio alongside microphone input using BlackHole as a virtual audio loopback device
+- **Audio mixing**: Mic and system audio streams are mixed together with normalization to prevent clipping
+- **Settings UI**: Added checkbox and device dropdown in the Settings window to enable and configure system audio capture
+- **Documentation**: Added setup instructions for installing BlackHole and creating a Multi-Output Device
 
 ### Diarization & Audio Processing Fixes (Feb 2026)
 
