@@ -2,7 +2,6 @@
 """Settings GUI using tkinter for LocalTranslate."""
 
 import json
-import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
@@ -47,7 +46,7 @@ class SettingsWindow:
         self._vars = {}
         self.root = tk.Tk()
         self.root.title("LocalTranslate Settings")
-        self.root.geometry("500x480")
+        self.root.geometry("500x580")
         self.root.resizable(False, False)
 
         self._create_widgets()
@@ -119,6 +118,41 @@ class SettingsWindow:
             width=40,
         )
         mic_combo.grid(row=row, column=0, sticky=tk.W, pady=(0, 15))
+        row += 1
+
+        # System Audio Section
+        self._vars["include_system_audio"] = tk.BooleanVar()
+        ttk.Checkbutton(
+            main_frame,
+            text="Include System Audio (requires BlackHole)",
+            variable=self._vars["include_system_audio"],
+            command=self._on_system_audio_toggle,
+        ).grid(row=row, column=0, sticky=tk.W, pady=(0, 5))
+        row += 1
+
+        ttk.Label(main_frame, text="System Audio Device:").grid(
+            row=row, column=0, sticky=tk.W, pady=(0, 5)
+        )
+        row += 1
+
+        self._vars["system_audio_device"] = tk.StringVar()
+        self._system_device_combo = ttk.Combobox(
+            main_frame,
+            textvariable=self._vars["system_audio_device"],
+            values=devices,
+            state="readonly",
+            width=40,
+        )
+        self._system_device_combo.grid(row=row, column=0, sticky=tk.W, pady=(0, 5))
+        row += 1
+
+        help_label = ttk.Label(
+            main_frame,
+            text="Install BlackHole (brew install blackhole-2ch) to capture system audio",
+            foreground="gray",
+            font=("TkDefaultFont", 10),
+        )
+        help_label.grid(row=row, column=0, sticky=tk.W, pady=(0, 15))
         row += 1
 
         # File format
@@ -200,6 +234,8 @@ class SettingsWindow:
             "include_timestamps": True,
             "enable_diarization": False,
             "huggingface_token": "",
+            "include_system_audio": False,
+            "system_audio_device": "",
         }
 
         for key, default in defaults.items():
@@ -208,6 +244,7 @@ class SettingsWindow:
                 self._vars[key].set(value)
 
         self._on_diarization_toggle()
+        self._on_system_audio_toggle()
 
     def _browse_folder(self):
         """Open folder selection dialog."""
@@ -225,6 +262,13 @@ class SettingsWindow:
         else:
             self._token_entry.configure(state="disabled")
 
+    def _on_system_audio_toggle(self):
+        """Handle system audio checkbox toggle."""
+        if self._vars["include_system_audio"].get():
+            self._system_device_combo.configure(state="readonly")
+        else:
+            self._system_device_combo.configure(state="disabled")
+
     def _on_save(self):
         """Save settings and close."""
         if not self._vars["output_folder"].get():
@@ -235,6 +279,10 @@ class SettingsWindow:
             messagebox.showerror("Error", "HuggingFace token is required for diarization")
             return
 
+        if self._vars["include_system_audio"].get() and not self._vars["system_audio_device"].get():
+            messagebox.showerror("Error", "Please select a system audio device (e.g., BlackHole 2ch)")
+            return
+
         new_config = {
             "output_folder": self._vars["output_folder"].get(),
             "whisper_model": self._vars["whisper_model"].get(),
@@ -243,6 +291,8 @@ class SettingsWindow:
             "include_timestamps": self._vars["include_timestamps"].get(),
             "enable_diarization": self._vars["enable_diarization"].get(),
             "huggingface_token": self._vars["huggingface_token"].get(),
+            "include_system_audio": self._vars["include_system_audio"].get(),
+            "system_audio_device": self._vars["system_audio_device"].get(),
         }
 
         save_config(new_config)

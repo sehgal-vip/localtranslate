@@ -62,6 +62,8 @@ Access settings through the menu bar to configure:
 | Output Folder | Where transcription files are saved | `~/Documents/Transcriptions` |
 | Whisper Model | Model size (tiny/base/small/medium/large) | `base` |
 | Microphone | Input device selection | System default |
+| Include System Audio | Capture system audio (requires BlackHole) | Disabled |
+| System Audio Device | Device for system audio capture | (empty) |
 | File Format | Output format (.md or .txt) | Markdown |
 | Include Timestamps | Add timestamps to transcription lines | Enabled |
 | Enable Diarization | Identify different speakers | Disabled |
@@ -89,6 +91,34 @@ To enable speaker identification:
 4. Enter the token in Settings and enable diarization
 
 Note: Diarization adds processing latency and requires additional model downloads.
+
+### System Audio Capture (Optional)
+
+Capture both microphone AND system audio simultaneously. This enables transcribing video calls, podcasts, YouTube videos, or any audio playing on your Mac alongside your voice.
+
+#### Step 1: Install BlackHole
+
+```bash
+brew install blackhole-2ch
+```
+
+#### Step 2: Create Multi-Output Device
+
+1. Open **Audio MIDI Setup** (`/Applications/Utilities/Audio MIDI Setup.app`)
+2. Click the **+** button at the bottom left → **Create Multi-Output Device**
+3. Check both your speakers/headphones AND "BlackHole 2ch"
+4. Right-click the new Multi-Output Device → **Use This Device For Sound Output**
+
+This setup allows you to hear audio normally while BlackHole captures it for transcription.
+
+#### Step 3: Enable in Settings
+
+1. Open LocalTranslate Settings from the menu bar
+2. Check "Include System Audio"
+3. Select "BlackHole 2ch" from the System Audio Device dropdown
+4. Save settings
+
+Now when you record, both your microphone input and system audio will be captured and transcribed together.
 
 ## Output Format
 

@@ -1,7 +1,6 @@
 """Settings management for LocalTranslate."""
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +13,8 @@ DEFAULT_CONFIG = {
     "enable_diarization": False,
     "huggingface_token": "",
     "microphone": "default",
+    "include_system_audio": False,
+    "system_audio_device": "",  # e.g., "BlackHole 2ch"
 }
 
 CONFIG_DIR = Path.home() / ".localtranslate"
@@ -96,6 +97,14 @@ class Config:
     @property
     def microphone(self) -> str:
         return self._config.get("microphone", DEFAULT_CONFIG["microphone"])
+
+    @property
+    def include_system_audio(self) -> bool:
+        return self._config.get("include_system_audio", False)
+
+    @property
+    def system_audio_device(self) -> str:
+        return self._config.get("system_audio_device", "")
 
     def to_dict(self) -> dict[str, Any]:
         """Return configuration as dictionary."""

@@ -2,7 +2,6 @@
 
 import queue
 import threading
-import time
 from typing import Optional
 
 import numpy as np
@@ -10,25 +9,30 @@ import sounddevice as sd
 
 
 class AudioRecorder:
-    """Handles microphone audio capture."""
+    """Handles microphone and system audio capture."""
 
     SAMPLE_RATE = 16000  # Whisper requirement
     CHANNELS = 1
     DTYPE = np.float32
     CHUNK_DURATION = 4  # seconds per chunk for real-time
 
-    def __init__(self, device: Optional[str] = None):
+    def __init__(self, device: Optional[str] = None, system_device: Optional[str] = None):
         self.device = device if device != "default" else None
+        self.system_device = system_device if system_device else None
         self.audio_queue: queue.Queue[np.ndarray] = queue.Queue()
         self._recording = False
         self._paused = False
         self._stream: Optional[sd.InputStream] = None
+        self._system_stream: Optional[sd.InputStream] = None
         self._buffer: list[np.ndarray] = []
         self._buffer_samples = 0
         self._chunk_samples = int(self.SAMPLE_RATE * self.CHUNK_DURATION)
         self._lock = threading.Lock()
         # Store full recording for end-of-session transcription
         self._full_recording: list[np.ndarray] = []
+        # Store system audio separately for mixing
+        self._system_recording: list[np.ndarray] = []
+        self._include_system_audio = False
 
     def _audio_callback(
         self, indata: np.ndarray, frames: int, time_info, status: sd.CallbackFlags
@@ -60,7 +64,22 @@ class AudioRecorder:
                 self._buffer = [remainder] if len(remainder) > 0 else []
                 self._buffer_samples = len(remainder)
 
-    def start(self) -> None:
+    def _system_audio_callback(
+        self, indata: np.ndarray, frames: int, time_info, status: sd.CallbackFlags
+    ) -> None:
+        """Callback for system audio stream."""
+        if status:
+            print(f"System audio status: {status}")
+
+        if self._paused:
+            return
+
+        audio_data = indata.copy().flatten()
+
+        with self._lock:
+            self._system_recording.append(audio_data.copy())
+
+    def start(self, include_system_audio: bool = False) -> None:
         """Start recording audio."""
         if self._recording:
             return
@@ -70,6 +89,8 @@ class AudioRecorder:
         self._buffer = []
         self._buffer_samples = 0
         self._full_recording = []
+        self._system_recording = []
+        self._include_system_audio = include_system_audio and self.system_device
 
         # Clear any old data from queue
         while not self.audio_queue.empty():
@@ -92,18 +113,42 @@ class AudioRecorder:
             )
             self._stream.start()
             print("Audio stream started successfully")
+
+            # Start system audio stream if enabled
+            if self._include_system_audio:
+                try:
+                    system_idx = self._get_system_device_index()
+                    if system_idx is not None:
+                        print(f"Opening system audio device: {self.system_device}")
+                        self._system_stream = sd.InputStream(
+                            samplerate=self.SAMPLE_RATE,
+                            channels=self.CHANNELS,
+                            dtype=self.DTYPE,
+                            device=system_idx,
+                            callback=self._system_audio_callback,
+                            blocksize=int(self.SAMPLE_RATE * 0.1),
+                        )
+                        self._system_stream.start()
+                        print("System audio stream started successfully")
+                    else:
+                        print(f"Warning: System audio device '{self.system_device}' not found")
+                        self._include_system_audio = False
+                except Exception as e:
+                    print(f"Error starting system audio stream: {e}")
+                    self._include_system_audio = False
         except Exception as e:
             print(f"Error starting audio stream: {e}")
             self._recording = False
             raise
 
     def stop(self) -> Optional[np.ndarray]:
-        """Stop recording and return the full recording."""
+        """Stop recording and return the full recording (mixed with system audio if enabled)."""
         if not self._recording:
             return None
 
         self._recording = False
 
+        # Stop microphone stream
         if self._stream:
             try:
                 self._stream.stop()
@@ -112,16 +157,55 @@ class AudioRecorder:
                 print(f"Error stopping stream: {e}")
             self._stream = None
 
-        # Return full recording
+        # Stop system audio stream
+        if self._system_stream:
+            try:
+                self._system_stream.stop()
+                self._system_stream.close()
+            except Exception as e:
+                print(f"Error stopping system audio stream: {e}")
+            self._system_stream = None
+
+        # Return full recording (mixed if system audio was captured)
         with self._lock:
             if self._full_recording:
-                full_audio = np.concatenate(self._full_recording)
+                mic_audio = np.concatenate(self._full_recording)
+
+                # Mix with system audio if available
+                if self._include_system_audio and self._system_recording:
+                    system_audio = np.concatenate(self._system_recording)
+                    mixed_audio = self._mix_audio(mic_audio, system_audio)
+                    print(f"Mixed mic ({len(mic_audio)/self.SAMPLE_RATE:.1f}s) + system ({len(system_audio)/self.SAMPLE_RATE:.1f}s) audio")
+                else:
+                    mixed_audio = mic_audio
+
                 self._full_recording = []
+                self._system_recording = []
                 self._buffer = []
                 self._buffer_samples = 0
-                return full_audio
+                return mixed_audio
 
         return None
+
+    def _mix_audio(self, mic_audio: np.ndarray, system_audio: np.ndarray) -> np.ndarray:
+        """Mix microphone and system audio together."""
+        # Match lengths by padding the shorter one
+        max_len = max(len(mic_audio), len(system_audio))
+
+        if len(mic_audio) < max_len:
+            mic_audio = np.pad(mic_audio, (0, max_len - len(mic_audio)), mode='constant')
+        if len(system_audio) < max_len:
+            system_audio = np.pad(system_audio, (0, max_len - len(system_audio)), mode='constant')
+
+        # Mix by averaging (prevents clipping)
+        mixed = (mic_audio + system_audio) / 2.0
+
+        # Normalize to prevent clipping while preserving dynamics
+        peak = np.max(np.abs(mixed))
+        if peak > 0.95:
+            mixed = mixed * (0.95 / peak)
+
+        return mixed.astype(self.DTYPE)
 
     def pause(self) -> None:
         """Pause recording."""
@@ -150,6 +234,10 @@ class AudioRecorder:
         """Set the recording device."""
         self.device = device if device != "default" else None
 
+    def set_system_device(self, device: Optional[str]) -> None:
+        """Set the system audio device (e.g., BlackHole 2ch)."""
+        self.system_device = device if device else None
+
     def _get_device_index(self) -> Optional[int]:
         """Get the device index for the current device setting."""
         if self.device is None:
@@ -158,6 +246,17 @@ class AudioRecorder:
         devices = self.list_devices()
         for idx, name in devices:
             if name == self.device:
+                return idx
+        return None
+
+    def _get_system_device_index(self) -> Optional[int]:
+        """Get the device index for the system audio device."""
+        if self.system_device is None:
+            return None
+
+        devices = self.list_devices()
+        for idx, name in devices:
+            if name == self.system_device:
                 return idx
         return None
 

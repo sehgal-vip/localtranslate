@@ -23,7 +23,10 @@ class LocalTranslate:
     """Main application class."""
 
     def __init__(self):
-        self.recorder = AudioRecorder(config.microphone)
+        self.recorder = AudioRecorder(
+            device=config.microphone,
+            system_device=config.system_audio_device if config.include_system_audio else None,
+        )
         self.transcriber = Transcriber(config.whisper_model)
         self.file_manager = FileManager(config.output_folder, config.file_format)
         self.audio_processor = AudioProcessor(sample_rate=16000)
@@ -49,6 +52,7 @@ class LocalTranslate:
         print(f"Output folder: {config.output_folder}")
         print(f"Whisper model: {config.whisper_model}")
         print(f"Diarization: {'enabled' if config.enable_diarization else 'disabled'}")
+        print(f"System audio: {'enabled (' + config.system_audio_device + ')' if config.include_system_audio else 'disabled'}")
 
         # Ensure output folder exists
         Path(config.output_folder).mkdir(parents=True, exist_ok=True)
@@ -98,6 +102,9 @@ class LocalTranslate:
         config.load()
 
         self.recorder.set_device(config.microphone)
+        self.recorder.set_system_device(
+            config.system_audio_device if config.include_system_audio else None
+        )
         self.file_manager.set_output_folder(config.output_folder)
         self.file_manager.set_file_format(config.file_format)
         self.app.set_output_folder(config.output_folder)
@@ -121,10 +128,15 @@ class LocalTranslate:
 
         # Start audio recording
         self.recorder.set_device(config.microphone)
+        self.recorder.set_system_device(
+            config.system_audio_device if config.include_system_audio else None
+        )
         try:
-            self.recorder.start()
+            self.recorder.start(include_system_audio=config.include_system_audio)
             self._recording_start_time = time.time()
             print("Recording started...")
+            if config.include_system_audio:
+                print(f"  System audio: {config.system_audio_device}")
         except Exception as e:
             print(f"Error starting recording: {e}")
             self._safe_notification("Recording Error", f"Could not start recording: {e}")
